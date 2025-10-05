@@ -1,0 +1,145 @@
+import pandas as pd
+
+# Load the metadata.csv file from CORD-19 dataset
+# Assume the file is downloaded locally as "metadata.csv"
+try:
+    df = pd.read_csv("metadata.csv", low_memory=False)
+    print("Data loaded successfully!")
+except FileNotFoundError:
+    print("Error: metadata.csv file not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+
+# Examine the first few rows
+print(df.head())
+
+# Check data structure
+print(df.info())
+
+# Check DataFrame dimensions
+print("Rows:", df.shape[0], "Columns:", df.shape[1])
+
+# Identify missing values
+print(df.isnull().sum())
+
+# Generate basic statistics for numerical columns
+print(df.describe())
+
+
+# Handle missing values
+# Identify columns with many missing values
+missing_threshold = 0.5  # Remove columns with >50% missing
+cols_to_drop = df.columns[df.isnull().mean() > missing_threshold]
+df_cleaned = df.drop(columns=cols_to_drop)
+
+# Fill missing values in important columns if necessary
+df_cleaned['journal'] = df_cleaned['journal'].fillna('Unknown')
+df_cleaned['abstract'] = df_cleaned['abstract'].fillna('')
+
+# Convert date columns to datetime
+df_cleaned['publish_time'] = pd.to_datetime(df_cleaned['publish_time'], errors='coerce')
+
+# Extract year for time-based analysis
+df_cleaned['year'] = df_cleaned['publish_time'].dt.year
+
+# Create new column: abstract word count
+df_cleaned['abstract_word_count'] = df_cleaned['abstract'].apply(lambda x: len(str(x).split()))
+
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from collections import Counter
+from wordcloud import WordCloud
+
+sns.set(style="whitegrid")
+
+# 1. Count papers by publication year
+papers_per_year = df_cleaned['year'].value_counts().sort_index()
+plt.figure(figsize=(8,4))
+papers_per_year.plot(kind='line', marker='o')
+plt.title("Number of COVID-19 Papers Published per Year")
+plt.xlabel("Year")
+plt.ylabel("Number of Papers")
+plt.show()
+
+# 2. Top journals publishing COVID-19 research
+top_journals = df_cleaned['journal'].value_counts().head(10)
+plt.figure(figsize=(8,4))
+sns.barplot(x=top_journals.values, y=top_journals.index)
+plt.title("Top 10 Journals Publishing COVID-19 Research")
+plt.xlabel("Number of Papers")
+plt.ylabel("Journal")
+plt.show()
+
+# 3. Most frequent words in titles
+all_titles = ' '.join(df_cleaned['title'].dropna())
+words = [word.lower() for word in all_titles.split() if len(word) > 3]
+word_freq = Counter(words)
+most_common_words = dict(word_freq.most_common(50))
+
+# Word cloud
+wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(most_common_words)
+plt.figure(figsize=(15,6))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.show()
+
+# 4. Distribution of paper counts by source
+if 'source_x' in df_cleaned.columns:
+    plt.figure(figsize=(8,4))
+    sns.countplot(y='source_x', data=df_cleaned, order=df_cleaned['source_x'].value_counts().iloc[:10].index)
+    plt.title("Top Sources of COVID-19 Papers")
+    plt.xlabel("Number of Papers")
+    plt.ylabel("Source")
+    plt.show()
+
+
+print(df_cleaned.head())
+
+
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from wordcloud import WordCloud
+from collections import Counter
+
+st.title("CORD-19 Data Explorer")
+st.write("Explore COVID-19 research papers interactively.")
+
+# Load data
+@st.cache
+def load_data():
+    return pd.read_csv("metadata.csv", low_memory=False)
+
+df = load_data()
+df['publish_time'] = pd.to_datetime(df['publish_time'], errors='coerce')
+df['year'] = df['publish_time'].dt.year
+
+# Interactive year filter
+year_range = st.slider("Select year range", int(df['year'].min()), int(df['year'].max()), (2020, 2021))
+df_filtered = df[(df['year'] >= year_range[0]) & (df['year'] <= year_range[1])]
+
+# Display filtered data sample
+st.write(df_filtered.head())
+
+# Plot publications over time
+papers_per_year = df_filtered['year'].value_counts().sort_index()
+st.line_chart(papers_per_year)
+
+# Top journals
+top_journals = df_filtered['journal'].value_counts().head(10)
+st.bar_chart(top_journals)
+
+# Word cloud of titles
+all_titles = ' '.join(df_filtered['title'].dropna())
+words = [word.lower() for word in all_titles.split() if len(word) > 3]
+word_freq = Counter(words)
+wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(word_freq)
+st.image(wordcloud.to_array(), use_column_width=True)
+
+
+streamlit run app.py
+
+

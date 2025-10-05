@@ -1,0 +1,49 @@
+# Base class
+class Smartphone:
+    def __init__(self, brand, model, battery):
+        self.brand = brand
+        self.model = model
+        self.__battery = battery  # private attribute (encapsulation)
+
+    def call(self, name):
+        print(f"Calling {name} from {self.model}...")
+
+    def battery_status(self):
+        print(f"Battery level: {self.__battery}%")
+
+    def use(self, hours):
+        self.__battery -= hours * 5
+        if self.__battery < 0:
+            self.__battery = 0
+        print(f"After using for {hours} hour(s), battery is {self.__battery}%")
+
+# Derived class (inheritance)
+class Smartwatch(Smartphone):
+    def __init__(self, brand, model, battery, heart_rate_sensor=True):
+        # Call the parent constructor using super()
+        super().__init__(brand, model, battery)
+        self.heart_rate_sensor = heart_rate_sensor
+
+    # Polymorphism: redefine a parent method
+    def call(self, name):
+        print(f"Voice-calling {name} via smartwatch!")
+
+    def track_heart_rate(self):
+        if self.heart_rate_sensor:
+            print("Heart rate: 75 bpm")
+        else:
+            print("No heart rate sensor available.")
+
+# Create objects
+phone = Smartphone("Samsung", "Galaxy S24", 90)
+watch = Smartwatch("Apple", "Watch 9", 80)
+
+# Interacting with objects
+phone.call("Alice")
+phone.use(2)
+phone.battery_status()
+
+print("\n--- Smartwatch Demo ---")
+watch.call("Bob")               # Polymorphism (method overridden)
+watch.use(3)                    # Inherited method
+watch.track_heart_rate()
